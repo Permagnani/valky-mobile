@@ -1,98 +1,197 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { Link } from 'expo-router';
+import {
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 export default function HomeScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.logo}>valky.</Text>
+          <Text style={styles.headerLabel}>INFORMAÇÃO E ACOLHIMENTO</Text>
+        </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <View style={styles.hero}>
+          <Text style={styles.eyebrow}>UM ESPAÇO DE APOIO</Text>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+          <Text style={styles.title}>
+            Informação também é uma forma de proteção.
+          </Text>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+          <Text style={styles.subtitle}>
+            Conhecimento, orientação e acesso à informação
+            para fortalecer mulheres.
+          </Text>
+        </View>
+
+        <Text style={styles.sectionTitle}>
+          Explore o Valky
+        </Text>
+
+        <Link href="/map" asChild>
+          <Pressable style={styles.card}>
+            <View style={styles.iconCircle}>
+              <Text style={styles.iconText}>⌖</Text>
+            </View>
+
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>
+                Mapa de incidências
+              </Text>
+              <Text style={styles.cardDescription}>
+                Consulte informações sobre ocorrências e
+                conheça os dados apresentados no mapa.
+              </Text>
+            </View>
+
+            <Text style={styles.arrow}>›</Text>
+          </Pressable>
+        </Link>
+
+        <Link href="/blog" asChild>
+          <Pressable style={styles.card}>
+            <View style={styles.iconCircle}>
+              <Text style={styles.iconText}>▤</Text>
+            </View>
+
+            <View style={styles.cardContent}>
+              <Text style={styles.cardTitle}>
+                Informação e acolhimento
+              </Text>
+              <Text style={styles.cardDescription}>
+                Acesse conteúdos, orientações e publicações
+                do Valky.
+              </Text>
+            </View>
+
+            <Text style={styles.arrow}>›</Text>
+          </Pressable>
+        </Link>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Valky — informação, cuidado e proteção.
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    backgroundColor: '#F8F3F2',
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+  container: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 36,
+  },
+  header: {
+    marginBottom: 48,
+  },
+  logo: {
+    color: '#684A53',
+    fontSize: 34,
+    fontWeight: 'bold',
+    letterSpacing: -1.5,
+  },
+  headerLabel: {
+    color: '#A87580',
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 2,
+    marginTop: 4,
+  },
+  hero: {
+    marginBottom: 38,
+  },
+  eyebrow: {
+    color: '#A87580',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 16,
   },
   title: {
+    color: '#684A53',
+    fontSize: 34,
+    fontWeight: 'bold',
+    lineHeight: 42,
+    marginBottom: 16,
+  },
+  subtitle: {
+    color: '#806C71',
+    fontSize: 16,
+    lineHeight: 25,
+  },
+  sectionTitle: {
+    color: '#684A53',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 18,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EAD9DC',
+  },
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3E8E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconText: {
+    color: '#995D6B',
+    fontSize: 29,
+    fontWeight: 'bold',
+  },
+  cardContent: {
+    flex: 1,
+    marginLeft: 14,
+    marginRight: 8,
+  },
+  cardTitle: {
+    color: '#684A53',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  cardDescription: {
+    color: '#806C71',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  arrow: {
+    color: '#A87580',
+    fontSize: 30,
+  },
+  footer: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  footerText: {
+    color: '#A87580',
+    fontSize: 12,
     textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
   },
 });
