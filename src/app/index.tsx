@@ -1,15 +1,83 @@
 
 import { Link } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
+import { login } from '@/services/api';
+import { getToken, removeToken } from '@/services/auth-storage';
+
 export default function HomeScreen() {
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [usuario, setUsuario] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const [autenticado, setAutenticado] = useState(false);
+
+  useEffect(() => {
+    async function verificarSessao() {
+      try {
+        const token = await getToken();
+        if (token) {
+          setAutenticado(true);
+          setUsuario('Sessão ativa');
+        }
+      } catch {
+        setAutenticado(false);
+      }
+    }
+
+    verificarSessao();
+  }, []);
+
+  async function entrar() {
+    if (!email.trim() || !senha) {
+      Alert.alert('Atenção', 'Preencha o e-mail e a senha.');
+      return;
+    }
+
+    try {
+      setCarregando(true);
+
+      const resposta = await login(email.trim(), senha);
+
+      setUsuario(resposta.nome);
+      setAutenticado(true);
+      setSenha('');
+
+      Alert.alert('Bem-vinda!', 'Login realizado com sucesso.');
+    } catch (error) {
+      Alert.alert(
+        'Não foi possível entrar',
+        error instanceof Error ? error.message : 'Verifique seus dados.',
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function sair() {
+    try {
+      await removeToken();
+      setAutenticado(false);
+      setUsuario('');
+      setEmail('');
+      setSenha('');
+      Alert.alert('Sessão encerrada', 'Você saiu da sua conta.');
+    } catch {
+      Alert.alert('Erro', 'Não foi possível encerrar a sessão.');
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -18,7 +86,9 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.logo}>valky.</Text>
-          <Text style={styles.headerLabel}>INFORMAÇÃO E ACOLHIMENTO</Text>
+          <Text style={styles.headerLabel}>
+            INFORMAÇÃO E ACOLHIMENTO
+          </Text>
         </View>
 
         <View style={styles.hero}>
@@ -34,9 +104,67 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>
-          Explore o Valky
-        </Text>
+        <View style={styles.loginCard}>
+          <Text style={styles.loginTitle}>
+            {autenticado ? 'Você está conectada!' : 'Acesse sua conta'}
+          </Text>
+
+          {autenticado ? (
+            <>
+              <Text style={styles.loginDescription}>
+                Olá, {usuario}. Sua autenticação foi realizada.
+              </Text>
+
+              <Pressable style={styles.logoutButton} onPress={sair}>
+                <Text style={styles.logoutButtonText}>Sair da conta</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.loginDescription}>
+                Entre para acessar sua conta Valky.
+              </Text>
+
+              <TextInput
+                style={styles.input}
+                placeholder="E-mail"
+                placeholderTextColor="#A58C92"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <TextInput
+                style={styles.input}
+                placeholder="Senha"
+                placeholderTextColor="#A58C92"
+                value={senha}
+                onChangeText={setSenha}
+                secureTextEntry
+                autoCapitalize="none"
+              />
+
+              <Pressable
+                style={[
+                  styles.loginButton,
+                  carregando && styles.disabledButton,
+                ]}
+                onPress={entrar}
+                disabled={carregando}
+              >
+                {carregando ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.loginButtonText}>Entrar</Text>
+                )}
+              </Pressable>
+            </>
+          )}
+        </View>
+
+        <Text style={styles.sectionTitle}>Explore o Valky</Text>
 
         <Link href="/map" asChild>
           <Pressable style={styles.card}>
@@ -45,9 +173,7 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>
-                Mapa de incidências
-              </Text>
+              <Text style={styles.cardTitle}>Mapa de incidências</Text>
               <Text style={styles.cardDescription}>
                 Consulte informações sobre ocorrências e
                 conheça os dados apresentados no mapa.
@@ -99,7 +225,7 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
   },
   header: {
-    marginBottom: 48,
+    marginBottom: 35,
   },
   logo: {
     color: '#684A53',
@@ -115,7 +241,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   hero: {
-    marginBottom: 38,
+    marginBottom: 28,
   },
   eyebrow: {
     color: '#A87580',
@@ -135,6 +261,63 @@ const styles = StyleSheet.create({
     color: '#806C71',
     fontSize: 16,
     lineHeight: 25,
+  },
+  loginCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: '#EAD9DC',
+  },
+  loginTitle: {
+    color: '#684A53',
+    fontSize: 21,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  loginDescription: {
+    color: '#806C71',
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 16,
+  },
+  input: {
+    backgroundColor: '#FAF6F5',
+    borderWidth: 1,
+    borderColor: '#EAD9DC',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    color: '#684A53',
+    fontSize: 15,
+    marginBottom: 12,
+  },
+  loginButton: {
+    backgroundColor: '#684A53',
+    borderRadius: 12,
+    padding: 15,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  loginButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  logoutButton: {
+    borderWidth: 1,
+    borderColor: '#A87580',
+    borderRadius: 12,
+    padding: 13,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    color: '#684A53',
+    fontWeight: 'bold',
   },
   sectionTitle: {
     color: '#684A53',

@@ -1,5 +1,9 @@
 
-import { getToken, saveToken } from './auth-storage';
+import {
+  getToken,
+  saveToken,
+  saveUserId,
+} from './auth-storage';
 
 const API_URL = 'http://192.168.0.2:8080';
 
@@ -29,7 +33,14 @@ export async function apiFetch(
   });
 
   const responseText = await response.text();
-  const data = responseText ? JSON.parse(responseText) : null;
+
+let data = null;
+
+try {
+  data = responseText ? JSON.parse(responseText) : null;
+} catch {
+  data = { mensagem: responseText };
+}
 
   if (!response.ok) {
     throw new Error(
@@ -50,6 +61,6 @@ export async function login(
   });
 
   await saveToken(data.token);
-
-  return data;
+await saveUserId(data.usuarioId);
+return data;
 }

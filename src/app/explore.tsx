@@ -1,180 +1,384 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
+import { apiFetch } from '@/services/api';
+import { getUserId } from '@/services/auth-storage';
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+type Contato = {
+  id: number;
+  nome: string;
+  telefone: string;
+  parentesco: string;
+};
+
+export default function ContatosScreen() {
+  const [contatos, setContatos] = useState<Contato[]>([]);
+  const [nome, setNome] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [parentesco, setParentesco] = useState('');
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+
+  const carregarContatos = useCallback(async () => {
+    try {
+      setCarregando(true);
+
+      const usuarioId = await getUserId();
+
+      if (!usuarioId) {
+        throw new Error('Faça login novamente para acessar seus contatos.');
+      }
+
+      const resposta = await apiFetch(
+        `/api/contatos-confianca/usuario/${usuarioId}`,
+      );
+
+      setContatos(
+        Array.isArray(resposta) ? resposta : resposta?.content ?? [],
+      );
+    } catch (error) {
+      Alert.alert(
+        'Não foi possível carregar',
+        error instanceof Error ? error.message : 'Tente novamente.',
+      );
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarContatos();
+  }, [carregarContatos]);
+
+  async function adicionarContato() {
+    if (!nome.trim() || !telefone.trim() || !parentesco.trim()) {
+      Alert.alert('Atenção', 'Preencha todos os campos.');
+      return;
+    }
+
+    try {
+      setSalvando(true);
+
+      const usuarioId = await getUserId();
+
+      if (!usuarioId) {
+        throw new Error('Faça login novamente.');
+      }
+
+      await apiFetch(
+        `/api/contatos-confianca/usuario/${usuarioId}`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            nome: nome.trim(),
+            telefone: telefone.trim(),
+            parentesco: parentesco.trim(),
+          }),
+        },
+      );
+
+      setNome('');
+      setTelefone('');
+      setParentesco('');
+
+      await carregarContatos();
+
+      Alert.alert('Sucesso', 'Contato cadastrado com sucesso!');
+    } catch (error) {
+      Alert.alert(
+        'Erro ao cadastrar',
+        error instanceof Error ? error.message : 'Tente novamente.',
+      );
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  function confirmarExclusao(contatoId: number) {
+    Alert.alert(
+      'Excluir contato',
+      'Deseja realmente excluir este contato?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => excluirContato(contatoId),
+        },
+      ],
+    );
+  }
+
+  async function excluirContato(contatoId: number) {
+    try {
+      await apiFetch(`/api/contatos-confianca/${contatoId}`, {
+        method: 'DELETE',
+      });
+
+      await carregarContatos();
+
+      Alert.alert('Sucesso', 'Contato excluído.');
+    } catch (error) {
+      Alert.alert(
+        'Erro ao excluir',
+        error instanceof Error ? error.message : 'Tente novamente.',
+      );
+    }
+  }
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.eyebrow}>VALKY • PROTEÇÃO</Text>
+        <Text style={styles.title}>Contatos de confiança</Text>
+        <Text style={styles.subtitle}>
+          Pessoas que você escolhe para fazer parte da sua rede de apoio.
+        </Text>
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
-            </Pressable>
-          </ExternalLink>
-        </ThemedView>
+        <View style={styles.formCard}>
+          <Text style={styles.cardTitle}>Adicionar contato</Text>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+          <Text style={styles.label}>Nome</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nome do contato"
+            placeholderTextColor="#A58C92"
+            value={nome}
+            onChangeText={setNome}
+          />
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
+          <Text style={styles.label}>Telefone</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ex.: 11999999999"
+            placeholderTextColor="#A58C92"
+            value={telefone}
+            onChangeText={setTelefone}
+            keyboardType="phone-pad"
+          />
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+          <Text style={styles.label}>Parentesco ou relação</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ex.: Irmã, amiga, mãe..."
+            placeholderTextColor="#A58C92"
+            value={parentesco}
+            onChangeText={setParentesco}
+          />
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+          <Pressable
+            style={[styles.addButton, salvando && styles.disabledButton]}
+            onPress={adicionarContato}
+            disabled={salvando}
+          >
+            {salvando ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.addButtonText}>Adicionar contato</Text>
+            )}
+          </Pressable>
+        </View>
 
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+        <View style={styles.listHeader}>
+          <Text style={styles.sectionTitle}>Minha rede de apoio</Text>
+          <Pressable onPress={carregarContatos}>
+            <Text style={styles.refreshText}>Atualizar</Text>
+          </Pressable>
+        </View>
+
+        {carregando ? (
+          <ActivityIndicator color="#A87580" size="large" />
+        ) : contatos.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>
+              Nenhum contato cadastrado ainda.
+            </Text>
+          </View>
+        ) : (
+          contatos.map((contato) => (
+            <View key={contato.id} style={styles.contactCard}>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactName}>{contato.nome}</Text>
+                <Text style={styles.contactRelation}>
+                  {contato.parentesco}
+                </Text>
+                <Text style={styles.contactPhone}>{contato.telefone}</Text>
+              </View>
+
+              <Pressable
+                onPress={() => confirmarExclusao(contato.id)}
+                style={styles.deleteButton}
+              >
+                <Text style={styles.deleteText}>Excluir</Text>
+              </Pressable>
+            </View>
+          ))
+        )}
+
+        <Text style={styles.footer}>
+          Valky — informação, cuidado e proteção.
+        </Text>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F3F2',
+  },
+  content: {
+    padding: 22,
+    paddingTop: 28,
+    paddingBottom: 40,
+  },
+  eyebrow: {
+    color: '#A87580',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 9,
+  },
+  title: {
+    color: '#684A53',
+    fontSize: 27,
+    fontWeight: 'bold',
+    marginBottom: 9,
+  },
+  subtitle: {
+    color: '#806C71',
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 25,
+  },
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 19,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EAD9DC',
+    marginBottom: 30,
+  },
+  cardTitle: {
+    color: '#684A53',
+    fontSize: 19,
+    fontWeight: 'bold',
+    marginBottom: 18,
+  },
+  label: {
+    color: '#684A53',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 7,
+  },
+  input: {
+    backgroundColor: '#FAF6F5',
+    borderWidth: 1,
+    borderColor: '#EAD9DC',
+    borderRadius: 12,
+    padding: 14,
+    color: '#684A53',
+    marginBottom: 15,
+    fontSize: 14,
+  },
+  addButton: {
+    backgroundColor: '#684A53',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    color: '#684A53',
+    fontSize: 19,
+    fontWeight: 'bold',
+  },
+  refreshText: {
+    color: '#A87580',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#EAD9DC',
+  },
+  emptyText: {
+    color: '#806C71',
+    textAlign: 'center',
+    fontSize: 14,
+  },
+  contactCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 17,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#EAD9DC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  contactInfo: {
     flex: 1,
   },
-  contentContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  contactName: {
+    color: '#684A53',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
+  contactRelation: {
+    color: '#A87580',
+    fontSize: 13,
+    marginBottom: 4,
   },
-  titleContainer: {
-    gap: Spacing.three,
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+  contactPhone: {
+    color: '#806C71',
+    fontSize: 13,
   },
-  centerText: {
+  deleteButton: {
+    padding: 9,
+  },
+  deleteText: {
+    color: '#A34F60',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  footer: {
+    color: '#A87580',
+    fontSize: 12,
     textAlign: 'center',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
-  },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-  },
-  collapsibleContent: {
-    alignItems: 'center',
-  },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+    marginTop: 28,
   },
 });
