@@ -1,18 +1,20 @@
 {
   "expo": {
-    "name": "valky-mobile",
+    "name": "Valky CitizenTech",
     "slug": "valky-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "valkymobile",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "br.com.fiap.valkymobile"
     },
     "android": {
+      "package": "br.com.fiap.valkymobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#F8F3F2",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -20,7 +22,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "server",
+      "bundler": "metro",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -28,14 +31,17 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#684A53",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
       ]
     ],
+    "extra": {
+      "commitHash": "9a7cebe09f193b593faea29a124a510150aa4d4e"
+    },
     "experiments": {
-      "typedRoutes": true,
+      "typedRoutes": false,
       "reactCompiler": true
     }
   }
