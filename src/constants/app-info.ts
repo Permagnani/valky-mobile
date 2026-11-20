@@ -18,11 +18,11 @@ export const APP_INFO = {
    */
   commitHashFull:
     process.env.EXPO_PUBLIC_COMMIT_HASH ??
-    '9a7cebe09f193b593faea29a124a510150aa4d4e',
+    'f09333c1f8d35efe8fcc97c23753d988053719cb',
   commitHashShort:
     (
       process.env.EXPO_PUBLIC_COMMIT_HASH ??
-      '9a7cebe09f193b593faea29a124a510150aa4d4e'
+      'f09333c1f8d35efe8fcc97c23753d988053719cb'
     ).slice(0, 7),
   repositoryUrl: 'https://github.com/Permagnani/valky-mobile',
   apiRepositoryUrl: 'https://github.com/Permagnani/valky-devops',
