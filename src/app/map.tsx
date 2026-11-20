@@ -1,5 +1,5 @@
-
-import { useState } from 'react';
+import { Link } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -7,73 +7,144 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapView, { Callout, Marker } from 'react-native-maps';
+
+import {
+  IncidentsMap,
+  MapaOcorrenciaItem,
+} from '@/components/incidents-map';
+import { ValkyStatusMeta } from '@/constants/valky-theme';
+import { useAuth } from '@/contexts/auth-context';
+import { AlertService } from '@/services/alert-service';
+import { AlertaResponse } from '@/types/api';
 
 const categorias = [
   'Todos',
+  'Alertas API (.NET)',
   'Violência física',
   'Violência psicológica',
   'Violência sexual',
-  'Outros registros',
 ];
 
-const ocorrencias = [
+const ocorrenciasBase: MapaOcorrenciaItem[] = [
   {
-    id: '1',
+    id: 'demo-1',
     titulo: 'Registro demonstrativo 01',
     categoria: 'Violência física',
-    descricao: 'Exemplo fictício de registro para demonstrar a apresentação de informações no mapa.',
+    descricao:
+      'Exemplo fictício de registro para demonstrar a apresentação de informações no mapa.',
     data: '10/11/2026',
-    orientacao: 'Em uma situação de risco imediato, procure um local seguro e acione os serviços de emergência.',
+    orientacao:
+      'Em uma situação de risco imediato, procure um local seguro e acione os serviços de emergência.',
     latitude: -23.5505,
     longitude: -46.6333,
   },
   {
-    id: '2',
+    id: 'demo-2',
     titulo: 'Registro demonstrativo 02',
     categoria: 'Violência psicológica',
-    descricao: 'Exemplo fictício de conteúdo informativo sobre violência psicológica.',
+    descricao:
+      'Exemplo fictício de conteúdo informativo sobre violência psicológica.',
     data: '08/11/2026',
-    orientacao: 'Busque orientação em serviços especializados de atendimento à mulher.',
+    orientacao:
+      'Busque orientação em serviços especializados de atendimento à mulher.',
     latitude: -23.558,
     longitude: -46.645,
   },
   {
-    id: '3',
+    id: 'demo-3',
     titulo: 'Registro demonstrativo 03',
     categoria: 'Violência sexual',
-    descricao: 'Exemplo fictício de registro utilizado para demonstrar os detalhes de uma categoria.',
+    descricao:
+      'Exemplo fictício de registro utilizado para demonstrar os detalhes de uma categoria.',
     data: '05/11/2026',
-    orientacao: 'Procure atendimento especializado e apoio de um serviço de saúde ou proteção.',
+    orientacao:
+      'Procure atendimento especializado e apoio de um serviço de saúde ou proteção.',
     latitude: -23.543,
     longitude: -46.625,
   },
 ];
 
 export default function MapScreen() {
-  const [categoriaSelecionada, setCategoriaSelecionada] =
-    useState('Todos');
-  const [registroSelecionado, setRegistroSelecionado] =
-    useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState('Todos');
+  const [registroSelecionado, setRegistroSelecionado] = useState<string | null>(
+    null
+  );
+  const [alertasApi, setAlertasApi] = useState<MapaOcorrenciaItem[]>([]);
+  const [syncing, setSyncing] = useState(false);
 
-const registroAtual = ocorrencias.find(
-  (item) => item.id === registroSelecionado
-);
+  const sincronizarAlertasMapa = useCallback(async () => {
+    if (!isAuthenticated) {
+      setAlertasApi([]);
+      return;
+    }
+    setSyncing(true);
+    try {
+      const lista: AlertaResponse[] = await AlertService.listarAlertas();
+      const convertidos: MapaOcorrenciaItem[] = lista.map((a) => ({
+        id: `api-${a.id}`,
+        apiAlertaId: a.id,
+        titulo: `Alerta Real #${a.id} (${a.codigoBo})`,
+        categoria: 'Alertas API (.NET)',
+        descricao: `Status atual: ${
+          ValkyStatusMeta[a.status]?.label ?? a.status
+        }. Coordenadas sincronizadas via Valky.Api.`,
+        data: new Date(a.criadoEm).toLocaleString('pt-BR'),
+        orientacao:
+          ValkyStatusMeta[a.status]?.description ??
+          'Ocorrência monitorada pela Central 190 e Rede de Confiança.',
+        latitude: Number(a.latitude),
+        longitude: Number(a.longitude),
+        isFromApi: true,
+      }));
+      setAlertasApi(convertidos);
+    } catch {
+      // Mantém pontos demonstrativos caso a API esteja offline
+    } finally {
+      setSyncing(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    sincronizarAlertasMapa();
+  }, [sincronizarAlertasMapa]);
+
+  const todasOcorrencias = [...alertasApi, ...ocorrenciasBase];
+
+  const registroAtual = todasOcorrencias.find(
+    (item) => item.id === registroSelecionado
+  );
 
   const ocorrenciasFiltradas =
     categoriaSelecionada === 'Todos'
-      ? ocorrencias
-      : ocorrencias.filter(
+      ? todasOcorrencias
+      : todasOcorrencias.filter(
           (item) => item.categoria === categoriaSelecionada
         );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>VALKY • INFORMAÇÃO</Text>
-        <Text style={styles.title}>Mapa de incidências</Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.eyebrow}>VALKY • GEOLOCALIZAÇÃO & APOIO</Text>
+            <Text style={styles.title}>Mapa de incidências</Text>
+          </View>
+          {isAuthenticated && (
+            <Pressable
+              style={styles.syncBtn}
+              onPress={sincronizarAlertasMapa}
+              disabled={syncing}
+            >
+              <Text style={styles.syncBtnText}>
+                {syncing ? 'Sincronizando...' : `↻ API (${alertasApi.length})`}
+              </Text>
+            </Pressable>
+          )}
+        </View>
         <Text style={styles.subtitle}>
-          Visualização de registros demonstrativos.
+          Visualização de registros informativos e alertas em tempo real da
+          Valky.Api.
         </Text>
       </View>
 
@@ -90,16 +161,10 @@ const registroAtual = ocorrencias.find(
             <Pressable
               key={categoria}
               onPress={() => setCategoriaSelecionada(categoria)}
-              style={[
-                styles.filterButton,
-                ativa && styles.filterActive,
-              ]}
+              style={[styles.filterButton, ativa && styles.filterActive]}
             >
               <Text
-                style={[
-                  styles.filterText,
-                  ativa && styles.filterTextActive,
-                ]}
+                style={[styles.filterText, ativa && styles.filterTextActive]}
               >
                 {categoria}
               </Text>
@@ -108,85 +173,62 @@ const registroAtual = ocorrencias.find(
         })}
       </ScrollView>
 
-      <MapView
-        style={styles.map}
-        userInterfaceStyle="light"
-        initialRegion={{
-          latitude: -23.5505,
-          longitude: -46.6333,
-          latitudeDelta: 0.045,
-          longitudeDelta: 0.045,
-        }}
-      >
-        {ocorrenciasFiltradas.map((item) => (
-          <Marker
-            key={item.id}
-            coordinate={{
-              latitude: item.latitude,
-              longitude: item.longitude,
-            }}
-            pinColor="#A87580"
-            onPress={() => setRegistroSelecionado(item.id)}
-          >
-            <Callout>
-              <View style={styles.callout}>
-                <Text style={styles.calloutTitle}>
-                  {item.titulo}
-                </Text>
-                <Text style={styles.calloutText}>
-                  {item.categoria}
-                </Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
-      </MapView>
+      <IncidentsMap
+        items={ocorrenciasFiltradas}
+        selectedId={registroSelecionado}
+        onSelect={(id) => setRegistroSelecionado(id)}
+      />
 
       {registroAtual && (
-  <View style={styles.detailCard}>
-    <View style={styles.detailHeader}>
-      <Text style={styles.detailTitle}>
-        {registroAtual.titulo}
-      </Text>
+        <View style={styles.detailCard}>
+          <View style={styles.detailHeader}>
+            <Text style={styles.detailTitle}>{registroAtual.titulo}</Text>
 
-      <Pressable
-        onPress={() => setRegistroSelecionado(null)}
-      >
-        <Text style={styles.closeButton}>Fechar ✕</Text>
-      </Pressable>
-    </View>
+            <Pressable onPress={() => setRegistroSelecionado(null)}>
+              <Text style={styles.closeButton}>Fechar ✕</Text>
+            </Pressable>
+          </View>
 
-    <Text style={styles.detailCategory}>
-      {registroAtual.categoria}
-    </Text>
+          <Text style={styles.detailCategory}>{registroAtual.categoria}</Text>
 
-    <Text style={styles.detailLabel}>Descrição</Text>
-    <Text style={styles.detailText}>
-      {registroAtual.descricao}
-    </Text>
+          <Text style={styles.detailLabel}>Descrição</Text>
+          <Text style={styles.detailText}>{registroAtual.descricao}</Text>
 
-    <Text style={styles.detailLabel}>Data demonstrativa</Text>
-    <Text style={styles.detailText}>
-      {registroAtual.data}
-    </Text>
+          <Text style={styles.detailLabel}>Data / Horário</Text>
+          <Text style={styles.detailText}>{registroAtual.data}</Text>
 
-    <Text style={styles.detailLabel}>
-      Orientação informativa
-    </Text>
-    <Text style={styles.detailText}>
-      {registroAtual.orientacao}
-    </Text>
+          <Text style={styles.detailLabel}>Orientação e Andamento</Text>
+          <Text style={styles.detailText}>{registroAtual.orientacao}</Text>
 
-    <Text style={styles.disclaimer}>
-      Conteúdo inteiramente fictício para demonstração.
-    </Text>
-  </View>
-)}
+          {registroAtual.isFromApi && registroAtual.apiAlertaId ? (
+            <Link
+              href={{
+                pathname: '/alerts' as never,
+                params: { alertaId: String(registroAtual.apiAlertaId) },
+              }}
+              asChild
+            >
+              <Pressable style={styles.openAlertBtn}>
+                <Text style={styles.openAlertBtnText}>
+                  Abrir Alerta #{registroAtual.apiAlertaId} na Central 190 →
+                </Text>
+              </Pressable>
+            </Link>
+          ) : null}
+
+          <Text style={styles.disclaimer}>
+            {registroAtual.isFromApi
+              ? 'Registro sincronizado diretamente da Valky.Api (.NET 10 + Oracle).'
+              : 'Conteúdo demonstrativo para conscientização e prevenção.'}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.legend}>
         <View style={styles.legendDot} />
         <Text style={styles.legendText}>
-          {ocorrenciasFiltradas.length} registros demonstrativos
+          {ocorrenciasFiltradas.length} registro(s) no mapa ({alertasApi.length}{' '}
+          sincronizado(s) da API)
         </Text>
       </View>
     </View>
@@ -195,44 +237,62 @@ const registroAtual = ocorrencias.find(
 
 const styles = StyleSheet.create({
   filterScroll: {
-  height: 58,
-  flexGrow: 0,
-},
+    height: 54,
+    flexGrow: 0,
+  },
   container: {
     flex: 1,
     backgroundColor: '#F8F3F2',
   },
   header: {
     paddingHorizontal: 22,
-    paddingTop: 18,
-    paddingBottom: 12,
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   eyebrow: {
     color: '#A87580',
     fontSize: 10,
     fontWeight: 'bold',
     letterSpacing: 2,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   title: {
     color: '#684A53',
-    fontSize: 25,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  syncBtn: {
+    backgroundColor: '#F3E8E9',
+    borderWidth: 1,
+    borderColor: '#D8BEC3',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  syncBtnText: {
+    color: '#684A53',
+    fontSize: 11,
     fontWeight: 'bold',
   },
   subtitle: {
     color: '#806C71',
-    fontSize: 13,
-    marginTop: 6,
+    fontSize: 12,
+    marginTop: 4,
   },
   filters: {
-  paddingHorizontal: 18,
-  paddingVertical: 6,
-  gap: 8,
-  alignItems: 'center',
-},
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    gap: 8,
+    alignItems: 'center',
+  },
   filterButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 22,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -250,15 +310,11 @@ const styles = StyleSheet.create({
   filterTextActive: {
     color: '#FFFFFF',
   },
-  map: {
-    flex: 1,
-    width: '100%',
-  },
   legend: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: 16,
+    padding: 14,
     gap: 9,
   },
   legendDot: {
@@ -271,65 +327,65 @@ const styles = StyleSheet.create({
     color: '#684A53',
     fontSize: 12,
   },
-  callout: {
-    padding: 5,
-    minWidth: 150,
+  detailCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: 1,
+    borderColor: '#EAD9DC',
   },
-  calloutTitle: {
-    fontWeight: 'bold',
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  detailTitle: {
     color: '#684A53',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: 'bold',
+    flex: 1,
   },
-  calloutText: {
+  closeButton: {
+    color: '#A87580',
+    fontWeight: '600',
+    padding: 5,
+  },
+  detailCategory: {
+    color: '#A87580',
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  detailLabel: {
+    color: '#684A53',
+    fontWeight: 'bold',
+    fontSize: 13,
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  detailText: {
     color: '#806C71',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  openAlertBtn: {
+    backgroundColor: '#684A53',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  openAlertBtnText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
     fontSize: 12,
   },
-  detailCard: {
-  backgroundColor: '#FFFFFF',
-  padding: 18,
-  borderTopLeftRadius: 22,
-  borderTopRightRadius: 22,
-  borderWidth: 1,
-  borderColor: '#EAD9DC',
-},
-detailHeader: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: 10,
-},
-detailTitle: {
-  color: '#684A53',
-  fontSize: 17,
-  fontWeight: 'bold',
-  flex: 1,
-},
-closeButton: {
-  color: '#A87580',
-  fontWeight: '600',
-  padding: 5,
-},
-detailCategory: {
-  color: '#A87580',
-  fontWeight: 'bold',
-  marginBottom: 12,
-},
-detailLabel: {
-  color: '#684A53',
-  fontWeight: 'bold',
-  fontSize: 13,
-  marginTop: 9,
-  marginBottom: 3,
-},
-detailText: {
-  color: '#806C71',
-  fontSize: 13,
-  lineHeight: 19,
-},
-disclaimer: {
-  color: '#A87580',
-  fontSize: 10,
-  marginTop: 14,
-  fontStyle: 'italic',
-},
+  disclaimer: {
+    color: '#A87580',
+    fontSize: 10,
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
 });
